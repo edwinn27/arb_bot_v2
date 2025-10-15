@@ -126,7 +126,13 @@ function logBestRoute(bestRoute) {
   const colorMain = bestRoute.profit.gte(PROFIT_THRESHOLD_ETH) ? colorGreenDim : colorGray;
   const profitMark = bestRoute.profit.gt(0) ? "▲" : "▼";
 
+  // --- log stary (oryginalny) ---
   console.log(`${colorMain}[${nowTs()}] ${profitMark} ${bestRoute.fromAmount.toFixed(6)} ETH -> ${bestRoute.toAmount.toFixed(6)} SOL (${bestRoute.bridgeFrom}) -> ${bestRoute.backAmount.toFixed(6)} ETH (${bestRoute.bridgeTo}) | PROFIT: ${bestRoute.profit.toFixed(6)} ETH (${bestRoute.pct.toFixed(3)}%)${colorReset}`);
+
+  // --- log skalibrowany (realistic) ---
+  const profitRealistic = bestRoute.backAmountRealistic.sub(bestRoute.fromAmount);
+  const pctRealistic = profitRealistic.div(bestRoute.fromAmount).mul(100);
+  console.log(`${colorMain}[${nowTs()}] ${profitMark} ${bestRoute.fromAmount.toFixed(6)} ETH -> ${bestRoute.toAmount.toFixed(6)} SOL (${bestRoute.bridgeFrom}) -> ${bestRoute.backAmountRealistic.toFixed(6)} ETH (${bestRoute.bridgeTo}) | PROFIT (realistic): ${profitRealistic.toFixed(6)} ETH (${pctRealistic.toFixed(3)}%)${colorReset}`);
 }
 
 async function checkOnce() {
