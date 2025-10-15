@@ -5,8 +5,8 @@ import dotenv from "dotenv";
 import os;
 dotenv.config();
 
-const TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-const TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 const BASE_WALLET = process.env.BASE_WALLET;
 const SOLANA_WALLET = process.env.SOLANA_WALLET;
@@ -182,4 +182,5 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
