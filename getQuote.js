@@ -2,7 +2,6 @@ import fetch from "node-fetch";
 import { Decimal } from "decimal.js";
 import { fetchQuote } from "@mayanfinance/swap-sdk";
 import dotenv from "dotenv";
-import os;
 dotenv.config();
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
@@ -182,5 +181,6 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
 
