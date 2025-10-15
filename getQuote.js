@@ -22,6 +22,14 @@ const TO_CHAIN = 8453; // Base
 const EVM_NATIVE = "0x0000000000000000000000000000000000000000";
 const SOL_NATIVE = "11111111111111111111111111111111";
 
+// --- KALIBRACJA FEE I SLIPPAGE ---
+// dane uśrednione: realne fee dla Base–Solana via Jumper i Mayan
+const FEE_JUMPER_SOL = 0.0025; // 0.25%
+const FEE_JUMPER_EVM = 0.0015; // 0.15%
+const FEE_MAYAN_SOLANA = 0.002; // 0.2%
+const FEE_MAYAN_EVM = 0.0018; // 0.18%
+const SLIPPAGE_EST = 0.003; // 0.3%
+
 function nowTs() {
   return new Date().toISOString().split("T")[1].split(".")[0];
 }
@@ -70,7 +78,7 @@ async function getJumperRoutes(fromAddress, toAddress, fromChain, toChain, fromT
 
 function parseJumperRoute(route) {
   const step = route.steps[0];
-  const toAmountRaw = route.toAmount || route.toAmountMin;
+  const toAmountRaw = route.toAmountMin || route.toAmount;
   if (!toAmountRaw) throw new Error("Missing toAmount in route");
   return {
     toAmount: new Decimal(toAmountRaw),
@@ -100,9 +108,21 @@ async function getMayanQuote(fromToken, toToken, fromChain, toChain, amountIn64)
   }
 }
 
+// --- funkcja realistyczna: korekta fee/slippage ---
+function adjustRealisticAmount(amount, bridge, direction) {
+  let fee = 0;
+  if (bridge.toLowerCase() === "mayan") {
+    fee = direction === "toSol" ? FEE_MAYAN_EVM : FEE_MAYAN_SOLANA;
+  } else {
+    fee = direction === "toSol" ? FEE_JUMPER_EVM : FEE_JUMPER_SOL;
+  }
+  const net = amount.mul(Decimal.sub(1, fee + SLIPPAGE_EST));
+  return net;
+}
+
 function logBestRoute(bestRoute) {
-  const colorGreenBright = "\x1b[38;5;46m";   // wyraźny zielony
-  const colorGreenDim = "\x1b[38;5;112m";     // wyblakły zielony
+  const colorGreenBright = "\x1b[38;5;46m";
+  const colorGreenDim = "\x1b[38;5;112m";
   const colorGray = "\x1b[38;5;240m";
   const colorReset = "\x1b[0m";
 
@@ -120,7 +140,8 @@ async function checkOnce() {
   try {
     const routes = await getJumperRoutes(BASE_WALLET, SOLANA_WALLET, FROM_CHAIN, MIDDLE_CHAIN, EVM_NATIVE, SOL_NATIVE, fromAmountSmallest);
     const best = parseJumperRoute(routes[0]);
-    solAmount = fromSmallestUnit(best.toAmount, best.decimals);
+    const solRaw = fromSmallestUnit(best.toAmount, best.decimals);
+    solAmount = adjustRealisticAmount(solRaw, best.bridge, "toSol"); // ADJUSTED
     bridgeFrom = best.bridge;
   } catch (e) {
     console.error(`[${nowTs()}] Error BASE->SOL via Jumper:`, e);
@@ -134,12 +155,14 @@ async function checkOnce() {
     const mayanQuotes = await getMayanQuote(SOL_NATIVE, EVM_NATIVE, "solana", "base", amountIn64);
 
     if (bridgeFrom.toLowerCase() !== "mayan" && mayanQuotes.length > 0) {
-      ethBack = mayanQuotes[0].amount;
+      const rawBack = mayanQuotes[0].amount.div(Decimal.pow(10, 18));
+      ethBack = adjustRealisticAmount(rawBack, "MAYAN", "toEvm"); // ADJUSTED
       bridgeTo = "MAYAN";
     } else {
       const routesBack = await getJumperRoutes(SOLANA_WALLET, BASE_WALLET, MIDDLE_CHAIN, TO_CHAIN, SOL_NATIVE, EVM_NATIVE, toSmallestUnit(solAmount, 9));
       const bestBack = parseJumperRoute(routesBack[0]);
-      ethBack = fromSmallestUnit(bestBack.toAmount, bestBack.decimals);
+      const ethRaw = fromSmallestUnit(bestBack.toAmount, bestBack.decimals);
+      ethBack = adjustRealisticAmount(ethRaw, bestBack.bridge, "toEvm"); // ADJUSTED
       bridgeTo = bestBack.bridge;
     }
 
@@ -181,6 +204,3 @@ async function mainLoop() {
 }
 
 mainLoop();
-
-
-
