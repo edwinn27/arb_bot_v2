@@ -101,15 +101,17 @@ async function getMayanQuote(fromToken, toToken, fromChain, toChain, amountIn64)
 }
 
 function logBestRoute(bestRoute) {
-  const colorGreenBright = "\x1b[38;5;46m";   // wyraźny zielony
-  const colorGreenDim = "\x1b[38;5;112m";     // wyblakły zielony
+  const colorGreenBright = "\x1b[38;5;46m";
+  const colorGreenDim = "\x1b[38;5;112m";
   const colorGray = "\x1b[38;5;240m";
   const colorReset = "\x1b[0m";
 
   const colorMain = bestRoute.profit.gte(PROFIT_THRESHOLD_ETH) ? colorGreenDim : colorGray;
   const profitMark = bestRoute.profit.gt(0) ? "▲" : "▼";
 
-  console.log(`${colorMain}[${nowTs()}] ${profitMark} ${bestRoute.fromAmount.toFixed(6)} ETH -> ${bestRoute.toAmount.toFixed(6)} SOL (${bestRoute.bridgeFrom}) -> ${bestRoute.backAmount.toFixed(6)} ETH (${bestRoute.bridgeTo}) | PROFIT: ${bestRoute.profit.toFixed(6)} ETH (${bestRoute.pct.toFixed(3)}%)${colorReset}`);
+  console.log(
+    `${colorMain}[${nowTs()}] ${profitMark} ${bestRoute.fromAmount.toFixed(6)} ETH -> ${bestRoute.toAmount.toFixed(6)} SOL (${bestRoute.bridgeFrom}) -> ${bestRoute.backAmount.toFixed(6)} ETH (${bestRoute.bridgeTo}) | PROFIT: ${bestRoute.profit.toFixed(6)} ETH (${bestRoute.pct.toFixed(3)}%)${colorReset}`
+  );
 }
 
 async function checkOnce() {
@@ -119,7 +121,9 @@ async function checkOnce() {
   let solAmount = null, bridgeFrom = "";
   try {
     const routes = await getJumperRoutes(BASE_WALLET, SOLANA_WALLET, FROM_CHAIN, MIDDLE_CHAIN, EVM_NATIVE, SOL_NATIVE, fromAmountSmallest);
-    const best = parseJumperRoute(routes[0]);
+    const best = routes
+      .map(parseJumperRoute)
+      .sort((a, b) => b.toAmount.minus(a.toAmount).toNumber())[0];
     solAmount = fromSmallestUnit(best.toAmount, best.decimals);
     bridgeFrom = best.bridge;
   } catch (e) {
@@ -138,11 +142,12 @@ async function checkOnce() {
       bridgeTo = "MAYAN";
     } else {
       const routesBack = await getJumperRoutes(SOLANA_WALLET, BASE_WALLET, MIDDLE_CHAIN, TO_CHAIN, SOL_NATIVE, EVM_NATIVE, toSmallestUnit(solAmount, 9));
-      const bestBack = parseJumperRoute(routesBack[0]);
+      const bestBack = routesBack
+        .map(parseJumperRoute)
+        .sort((a, b) => b.toAmount.minus(a.toAmount).toNumber())[0];
       ethBack = fromSmallestUnit(bestBack.toAmount, bestBack.decimals);
       bridgeTo = bestBack.bridge;
     }
-
   } catch (e) {
     console.error(`[${nowTs()}] Error SOL->BASE:`, e);
     return;
@@ -181,4 +186,3 @@ async function mainLoop() {
 }
 
 mainLoop();
-
