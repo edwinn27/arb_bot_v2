@@ -11,8 +11,8 @@ const BASE_WALLET = process.env.BASE_WALLET;
 const SOLANA_WALLET = process.env.SOLANA_WALLET;
 
 const BASE_AMOUNT_ETH = new Decimal("2.0");
-const PROFIT_THRESHOLD_ETH = new Decimal("0.015");
-const MAYAN_PROFIT_THRESHOLD_ETH = new Decimal("0.015");
+const PROFIT_THRESHOLD_ETH = new Decimal("0.003");
+const MAYAN_PROFIT_THRESHOLD_ETH = new Decimal("0.006");
 const POLL_INTERVAL = 30_000;
 
 const FROM_CHAIN = 8453; // Base
@@ -70,7 +70,7 @@ async function getJumperRoutes(fromAddress, toAddress, fromChain, toChain, fromT
 
 function parseJumperRoute(route) {
   const step = route.steps[0];
-  const toAmountRaw = route.toAmountMin || route.toAmount;
+  const toAmountRaw = route.toAmount || route.toAmountMin;
   if (!toAmountRaw) throw new Error("Missing toAmount in route");
   return {
     toAmount: new Decimal(toAmountRaw),
@@ -100,45 +100,22 @@ async function getMayanQuote(fromToken, toToken, fromChain, toChain, amountIn64)
   }
 }
 
-// --- funkcja realistyczna: korekta fee/slippage ---
-function adjustRealisticAmount(amount, bridge, direction) {
-  const FEE_JUMPER_SOL = 0.0025;
-  const FEE_JUMPER_EVM = 0.0015;
-  const FEE_MAYAN_SOLANA = 0.002;
-  const FEE_MAYAN_EVM = 0.0018;
-  const SLIPPAGE_EST = 0.003; // przypisana wartość, nie zostawiać pustej
-
-  let fee = 0;
-  if (bridge.toLowerCase() === "mayan") {
-    fee = direction === "toSol" ? FEE_MAYAN_EVM : FEE_MAYAN_SOLANA;
-  } else {
-    fee = direction === "toSol" ? FEE_JUMPER_EVM : FEE_JUMPER_SOL;
-  }
-  return amount.mul(Decimal.sub(1, fee + SLIPPAGE_EST));
-}
-
 function logBestRoute(bestRoute) {
-  const colorGreenBright = "\x1b[38;5;46m";
-  const colorGreenDim = "\x1b[38;5;112m";
+  const colorGreenBright = "\x1b[38;5;46m";   // wyraźny zielony
+  const colorGreenDim = "\x1b[38;5;112m";     // wyblakły zielony
   const colorGray = "\x1b[38;5;240m";
   const colorReset = "\x1b[0m";
 
   const colorMain = bestRoute.profit.gte(PROFIT_THRESHOLD_ETH) ? colorGreenDim : colorGray;
   const profitMark = bestRoute.profit.gt(0) ? "▲" : "▼";
 
-  // log oryginalny
   console.log(`${colorMain}[${nowTs()}] ${profitMark} ${bestRoute.fromAmount.toFixed(6)} ETH -> ${bestRoute.toAmount.toFixed(6)} SOL (${bestRoute.bridgeFrom}) -> ${bestRoute.backAmount.toFixed(6)} ETH (${bestRoute.bridgeTo}) | PROFIT: ${bestRoute.profit.toFixed(6)} ETH (${bestRoute.pct.toFixed(3)}%)${colorReset}`);
-
-  // log skalibrowany
-  const profitRealistic = bestRoute.backAmountRealistic.sub(bestRoute.fromAmount);
-  const pctRealistic = profitRealistic.div(bestRoute.fromAmount).mul(100);
-  console.log(`${colorMain}[${nowTs()}] ${profitMark} ${bestRoute.fromAmount.toFixed(6)} ETH -> ${bestRoute.toAmount.toFixed(6)} SOL (${bestRoute.bridgeFrom}) -> ${bestRoute.backAmountRealistic.toFixed(6)} ETH (${bestRoute.bridgeTo}) | PROFIT (realistic): ${profitRealistic.toFixed(6)} ETH (${pctRealistic.toFixed(3)}%)${colorReset}`);
 }
 
 async function checkOnce() {
   const fromAmountSmallest = BASE_AMOUNT_ETH.mul(Decimal.pow(10, 18));
 
-  // Base -> Sol
+  // --- Base -> Sol ---
   let solAmount = null, bridgeFrom = "";
   try {
     const routes = await getJumperRoutes(BASE_WALLET, SOLANA_WALLET, FROM_CHAIN, MIDDLE_CHAIN, EVM_NATIVE, SOL_NATIVE, fromAmountSmallest);
@@ -150,24 +127,22 @@ async function checkOnce() {
     return;
   }
 
-  // Sol -> Base
+  // --- Sol -> Base ---
   let ethBack = null, bridgeTo = "";
-  let ethBackRealistic = null;
   try {
     const amountIn64 = solAmount.mul(Decimal.pow(10, 9)).toFixed(0);
     const mayanQuotes = await getMayanQuote(SOL_NATIVE, EVM_NATIVE, "solana", "base", amountIn64);
 
     if (bridgeFrom.toLowerCase() !== "mayan" && mayanQuotes.length > 0) {
-      ethBack = mayanQuotes[0].amount; // już w ETH
+      ethBack = mayanQuotes[0].amount;
       bridgeTo = "MAYAN";
-      ethBackRealistic = adjustRealisticAmount(ethBack, "MAYAN", "toEvm"); // bez dzielenia
     } else {
       const routesBack = await getJumperRoutes(SOLANA_WALLET, BASE_WALLET, MIDDLE_CHAIN, TO_CHAIN, SOL_NATIVE, EVM_NATIVE, toSmallestUnit(solAmount, 9));
       const bestBack = parseJumperRoute(routesBack[0]);
       ethBack = fromSmallestUnit(bestBack.toAmount, bestBack.decimals);
       bridgeTo = bestBack.bridge;
-      ethBackRealistic = adjustRealisticAmount(ethBack, bestBack.bridge, "toEvm");
     }
+
   } catch (e) {
     console.error(`[${nowTs()}] Error SOL->BASE:`, e);
     return;
@@ -183,8 +158,7 @@ async function checkOnce() {
     bridgeFrom,
     bridgeTo,
     profit,
-    pct,
-    backAmountRealistic: ethBackRealistic
+    pct
   };
 
   logBestRoute(bestRoute);
@@ -192,7 +166,7 @@ async function checkOnce() {
   const threshold = bridgeFrom.toLowerCase() === "mayan" ? MAYAN_PROFIT_THRESHOLD_ETH : PROFIT_THRESHOLD_ETH;
   if (profit.gte(threshold)) {
     const alertHeader = profit.gte(0.01) ? "*SUPER ARBITRAGE ALERT*" : "*ARBITRAGE ALERT*";
-    const msg = `${alertHeader}\n\`Profit: ${profit.toFixed(6)} ETH\`\n----------------------------\n*Bridge 1:* ${bridgeFrom} (Base→Solana)\n*Bridge 2:* ${bridgeTo} (Solana→Base)\n*Received:* \`${solAmount.toFixed(6)} SOL\`\n*Returned:* \`${ethBack.toFixed(6)} ETH\`\n*Returned (realistic):* \`${ethBackRealistic.toFixed(6)} ETH\`\n----------------------------`;
+    const msg = `${alertHeader}\n\`Profit: ${profit.toFixed(6)} ETH\`\n----------------------------\n*Bridge 1:* ${bridgeFrom} (Base→Solana)\n*Bridge 2:* ${bridgeTo} (Solana→Base)\n*Received:* \`${solAmount.toFixed(6)} SOL\`\n*Returned:* \`${ethBack.toFixed(6)} ETH\`\n----------------------------`;
     await sendTelegramMessage(msg);
   }
 }
@@ -207,4 +181,3 @@ async function mainLoop() {
 }
 
 mainLoop();
-
