@@ -11,7 +11,7 @@ const BASE_WALLET = process.env.BASE_WALLET;
 const SOLANA_WALLET = process.env.SOLANA_WALLET;
 
 const BASE_AMOUNT_ETH = new Decimal("2.0");
-const PROFIT_THRESHOLD_ETH = new Decimal("0.0025");
+const PROFIT_THRESHOLD_ETH = new Decimal("0.003");
 const MAYAN_PROFIT_THRESHOLD_ETH = new Decimal("0.005");
 const POLL_INTERVAL = 20_000;
 
@@ -186,3 +186,4 @@ async function mainLoop() {
 }
 
 mainLoop();
+
