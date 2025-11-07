@@ -140,6 +140,7 @@ async function checkOnce() {
     const routes = await getJumperRoutes(BASE_WALLET, SOLANA_WALLET, FROM_CHAIN, MIDDLE_CHAIN, FROM_TOKEN_ADDRESS, TO_TOKEN_ADDRESS, fromAmountSmallest);
     const best = routes
       .map(parseJumperRoute)
+      .filter(route => route.bridge.toLowerCase() !== "mayanmctp")
       .sort((a, b) => b.toAmount.minus(a.toAmount).toNumber())[0];
     toTokenAmount = fromSmallestUnit(best.toAmount, best.decimals);
     bridgeFrom = best.bridge;
@@ -161,6 +162,7 @@ async function checkOnce() {
       const routesBack = await getJumperRoutes(SOLANA_WALLET, BASE_WALLET, MIDDLE_CHAIN, TO_CHAIN, TO_TOKEN_ADDRESS, BACK_TOKEN_ADDRESS, toSmallestUnit(toTokenAmount, TO_TOKEN_DECIMALS));
       const bestBack = routesBack
         .map(parseJumperRoute)
+        .filter(route => route.bridge.toLowerCase() !== "mayanmctp")
         .sort((a, b) => b.toAmount.minus(a.toAmount).toNumber())[0];
       backTokenAmount = fromSmallestUnit(bestBack.toAmount, bestBack.decimals);
       bridgeTo = bestBack.bridge;
