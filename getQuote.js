@@ -52,7 +52,7 @@ async function sendTelegramMessage(text) {
 }
 
 async function getJumperRoutes(fromAddress, toAddress, fromChain, toChain, fromToken, toToken, fromAmount) {
-  const url = "https://li.quest/v1/advanced/routes";
+  const url = "https://api.jumper.exchange/p/lifi/advanced/routes";
   const headers = {
     "accept": "*/*",
     "content-type": "application/json",
@@ -209,6 +209,7 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
 
 
