@@ -158,7 +158,7 @@ async function checkOnce() {
     if (bridgeFrom.toLowerCase() !== "mayan" && mayanQuotes.length > 0) {
       if (
         BACK_TOKEN_ADDRESS === "0x0000000000000000000000000000000000000000" &&
-        TO_CHAIN === 56 // BSC chain ID
+        FROM_CHAIN === 56 // BSC chain ID
       ){
         backTokenAmount = fromSmallestUnit(mayanQuotes[0].amount, FROM_TOKEN_DECIMALS);
       } else {
@@ -216,6 +216,7 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
 
 
