@@ -15,9 +15,9 @@ const PROFIT_THRESHOLD = new Decimal(process.env.PROFIT_THRESHOLD || "0.008");
 const MAYAN_PROFIT_THRESHOLD = new Decimal(process.env.MAYAN_PROFIT_THRESHOLD || "0.015");
 const POLL_INTERVAL = 15_000;
 
-const FROM_CHAIN = 8453; // Base
+const FROM_CHAIN = process.env.FROM_CHAIN || 8453; // Base
 const MIDDLE_CHAIN = 1151111081099710; // Solana
-const TO_CHAIN = 8453; // Base
+const TO_CHAIN = FROM_CHAIN; // Base
 
 // Token addresses - configurable via env vars, defaults to ETH on Base -> SOL on Solana
 const FROM_TOKEN_ADDRESS = process.env.FROM_TOKEN_ADDRESS || "0x0000000000000000000000000000000000000000"; // ETH native on Base
@@ -209,6 +209,7 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
 
 
