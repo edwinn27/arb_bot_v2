@@ -156,8 +156,15 @@ async function checkOnce() {
     const mayanQuotes = await getMayanQuote(TO_TOKEN_ADDRESS, BACK_TOKEN_ADDRESS, "solana", "base", amountIn64);
 
     if (bridgeFrom.toLowerCase() !== "mayan" && mayanQuotes.length > 0) {
-      backTokenAmount = mayanQuotes[0].amount;
-      bridgeTo = "MAYAN";
+      if (
+        BACK_TOKEN_ADDRESS === "0x0000000000000000000000000000000000000000" &&
+        TO_CHAIN === 56 // BSC chain ID
+      ){
+        backTokenAmount = fromSmallestUnit(mayanQuotes[0].amount, FROM_TOKEN_DECIMALS);
+      } else {
+        backTokenAmount = mayanQuotes[0].amount;
+      }    
+    bridgeTo = "MAYAN";
     } else {
       const routesBack = await getJumperRoutes(SOLANA_WALLET, BASE_WALLET, MIDDLE_CHAIN, TO_CHAIN, TO_TOKEN_ADDRESS, BACK_TOKEN_ADDRESS, toSmallestUnit(toTokenAmount, TO_TOKEN_DECIMALS));
       const bestBack = routesBack
