@@ -140,10 +140,9 @@ function logBestRoute(bestRoute) {
 
 async function getAllBaseToSol() {
   const baseAmtSmall = BASE_AMOUNT.mul(Decimal.pow(10, FROM_TOKEN_DECIMALS));
-
   const routes = await getJumperRoutes(
     BASE_WALLET,
-    SOLANA_WALALA,
+    SOLANA_WALLET,
     FROM_CHAIN,
     MIDDLE_CHAIN,
     FROM_TOKEN_ADDRESS,
@@ -152,10 +151,10 @@ async function getAllBaseToSol() {
   );
 
   const jumper = routes.map(r => {
-    const p = parseJumperRoute(r);
+    const parsed = parseJumperRoute(r);
     return {
-      amount: fromSmallestUnit(p.toAmount, p.decimals),
-      bridge: p.bridge
+      amount: fromSmallestUnit(parsed.toAmount, parsed.decimals),
+      bridge: parsed.bridge
     };
   });
 
@@ -167,12 +166,9 @@ async function getAllBaseToSol() {
     baseAmtSmall.toFixed()
   );
 
-  const mayan = mayanRaw.map(q => ({
-    amount: q.amount,
-    bridge: "MAYAN"
-  }));
+  const mayan = mayanRaw.map(q => ({ amount: q.amount, bridge: "MAYAN" }));
 
-  return [...jumper, ...mayan].sort((a, b) => b.amount.minus(a.amount).toNumber())[0];
+  return [...jumper].sort((a, b) => b.amount.minus(a.amount).toNumber())[0];
 }
 
 async function getAllSolToBase(amountSol) {
@@ -189,10 +185,10 @@ async function getAllSolToBase(amountSol) {
   );
 
   const jumper = routesBack.map(r => {
-    const p = parseJumperRoute(r);
+    const parsed = parseJumperRoute(r);
     return {
-      amount: fromSmallestUnit(p.toAmount, p.decimals),
-      bridge: p.bridge
+      amount: fromSmallestUnit(parsed.toAmount, parsed.decimals),
+      bridge: parsed.bridge
     };
   });
 
@@ -204,10 +200,7 @@ async function getAllSolToBase(amountSol) {
     amountSmall
   );
 
-  const mayan = mayanRaw.map(q => ({
-    amount: q.amount,
-    bridge: "MAYAN"
-  }));
+  const mayan = mayanRaw.map(q => ({ amount: q.amount, bridge: "MAYAN" }));
 
   return [...jumper, ...mayan].sort((a, b) => b.amount.minus(a.amount).toNumber())[0];
 }
@@ -250,9 +243,7 @@ async function checkOnce() {
 
   const threshold = PROFIT_THRESHOLD;
   if (profit.gte(threshold)) {
-    const msg =
-      `*ARBITRAGE ALERT*\n` +
-      `Profit: ${profit.toFixed(6)} ${BACK_TOKEN_SYMBOL}`;
+    const msg = `*ARBITRAGE ALERT*\nProfit: ${profit.toFixed(6)} ${BACK_TOKEN_SYMBOL}`;
     await sendTelegramMessage(msg);
   }
 }
