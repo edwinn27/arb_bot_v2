@@ -19,17 +19,14 @@ const FROM_CHAIN = process.env.FROM_CHAIN || 8453; // Base
 const MIDDLE_CHAIN = process.env.FROM_CHAIN || 1151111081099710; // Solana
 const TO_CHAIN = FROM_CHAIN; // Base
 
-// Token addresses - configurable via env vars, defaults to ETH on Base -> SOL on Solana
-const FROM_TOKEN_ADDRESS = process.env.FROM_TOKEN_ADDRESS || "0x0000000000000000000000000000000000000000"; // ETH native on Base
-const TO_TOKEN_ADDRESS = process.env.TO_TOKEN_ADDRESS || "11111111111111111111111111111111"; // SOL native
-const BACK_TOKEN_ADDRESS = process.env.BACK_TOKEN_ADDRESS || FROM_TOKEN_ADDRESS; // Token to receive back (default: same as FROM)
+const FROM_TOKEN_ADDRESS = process.env.FROM_TOKEN_ADDRESS || "0x0000000000000000000000000000000000000000";
+const TO_TOKEN_ADDRESS = process.env.TO_TOKEN_ADDRESS || "11111111111111111111111111111111";
+const BACK_TOKEN_ADDRESS = process.env.BACK_TOKEN_ADDRESS || FROM_TOKEN_ADDRESS;
 
-// Token decimals - configurable via env vars
-const FROM_TOKEN_DECIMALS = parseInt(process.env.FROM_TOKEN_DECIMALS || "18"); // ETH uses 18 decimals
-const TO_TOKEN_DECIMALS = parseInt(process.env.TO_TOKEN_DECIMALS || "9"); // SOL uses 9 decimals
+const FROM_TOKEN_DECIMALS = parseInt(process.env.FROM_TOKEN_DECIMALS || "18");
+const TO_TOKEN_DECIMALS = parseInt(process.env.TO_TOKEN_DECIMALS || "9");
 const BACK_TOKEN_DECIMALS = process.env.BACK_TOKEN_DECIMALS ? parseInt(process.env.BACK_TOKEN_DECIMALS) : FROM_TOKEN_DECIMALS;
 
-// Token symbols for logging
 const FROM_TOKEN_SYMBOL = process.env.FROM_TOKEN_SYMBOL || "ETH";
 const TO_TOKEN_SYMBOL = process.env.TO_TOKEN_SYMBOL || "SOL";
 const BACK_TOKEN_SYMBOL = process.env.BACK_TOKEN_SYMBOL || FROM_TOKEN_SYMBOL;
@@ -138,12 +135,20 @@ async function checkOnce() {
   let toTokenAmount = null, bridgeFrom = "";
   try {
     const routes = await getJumperRoutes(BASE_WALLET, SOLANA_WALLET, FROM_CHAIN, MIDDLE_CHAIN, FROM_TOKEN_ADDRESS, TO_TOKEN_ADDRESS, fromAmountSmallest);
-    const best = routes
+
+    const filteredRoutes = routes
       .map(parseJumperRoute)
-      .filter(route => route.bridge.toLowerCase() !== "mayanmctp")
-      .sort((a, b) => b.toAmount.minus(a.toAmount).toNumber())[0];
+      .filter(r => r && !r.bridge.toLowerCase().includes("mayan"));
+
+    if (!filteredRoutes.length) {
+      console.log(`[${nowTs()}] Brak tras z Base na Sol bez Mayan`);
+      return;
+    }
+
+    const best = filteredRoutes.sort((a, b) => b.toAmount.minus(a.toAmount).toNumber())[0];
     toTokenAmount = fromSmallestUnit(best.toAmount, best.decimals);
     bridgeFrom = best.bridge;
+
   } catch (e) {
     console.error(`[${nowTs()}] Error BASE->SOL via Jumper:`, e);
     return;
@@ -153,8 +158,6 @@ async function checkOnce() {
   let backTokenAmount = null, bridgeTo = "";
   try {
     const amountIn64 = toTokenAmount.mul(Decimal.pow(10, TO_TOKEN_DECIMALS)).toFixed(0);
-
-    // ======= NOWA LOGIKA: MAYAN + JUMPER PORÓWNANIE =======
 
     // MAYAN
     const mayanQuotes = await getMayanQuote(
@@ -209,8 +212,6 @@ async function checkOnce() {
       backTokenAmount = jumperBest.amount;
       bridgeTo = jumperBest.bridge;
     }
-
-    // ========================================================
 
   } catch (e) {
     console.error(`[${nowTs()}] Error SOL->BASE:`, e);
