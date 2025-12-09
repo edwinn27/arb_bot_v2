@@ -68,19 +68,20 @@ async function getLifiRoutes(fromAddress, toAddress, fromChain, toChain, fromTok
     options: {
       order: "BEST_PRICE",
       maxPriceImpact: 1.0,
-      allowSwitchChain: true,
-      slippage: 0.003,
-      fee: 0,
-      integrator: "jumper_exchange"
+      allowSwitchChain: true
     }
   };
 
   const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
   const data = await res.json();
-  if (!data.routes || data.routes.length === 0) throw new Error("No routes found");
+
+  if (!data.routes || data.routes.length === 0) {
+    console.log(`[${nowTs()}] LI.FI returned no routes`, data);
+    throw new Error("No routes");
+  }
+
   return data.routes;
 }
-
 function parseJumperRoute(route) {
   const step = route.steps[0];
   const toAmountRaw = route.toAmountMin ?? route.toAmount;
@@ -274,3 +275,4 @@ async function mainLoop() {
 }
 
 mainLoop();
+
