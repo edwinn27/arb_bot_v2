@@ -237,7 +237,10 @@ async function checkOnce() {
 
   logBestRoute(bestRoute);
 
-  const threshold = bridgeFrom.toLowerCase() === "mayan" ? MAYAN_PROFIT_THRESHOLD : PROFIT_THRESHOLD;
+  const threshold = (bridgeFrom.toLowerCase() === "mayan" || bridgeTo.toLowerCase().includes("mayan"))
+    ? MAYAN_PROFIT_THRESHOLD
+    : PROFIT_THRESHOLD;
+  
   if (profit.gte(threshold)) {
     const profitDecimals = BACK_TOKEN_SYMBOL === "ETH" ? 6 : 2;
     const toDecimals = TO_TOKEN_SYMBOL === "SOL" ? 6 : 2;
@@ -264,6 +267,7 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
 
 
