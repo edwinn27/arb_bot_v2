@@ -16,7 +16,6 @@ const MAYAN_PROFIT_THRESHOLD = new Decimal(process.env.MAYAN_PROFIT_THRESHOLD ||
 const POLL_INTERVAL = 15_000;
 
 const FROM_CHAIN = process.env.FROM_CHAIN || 8453; // Base
-const MIDDLE_CHAIN = process.env.FROM_CHAIN || 1151111081099710; // Solana
 const MIDDLE_CHAIN = process.env.MIDDLE_CHAIN || 1151111081099710; // Solana
 const TO_CHAIN = FROM_CHAIN; // Base
 
@@ -256,3 +255,4 @@ await new Promise(r => setTimeout(r, Math.max(0, POLL_INTERVAL - elapsed)));
 }
 
 mainLoop();
+
