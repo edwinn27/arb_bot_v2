@@ -9,6 +9,7 @@
   "dependencies": {
     "@mayanfinance/swap-sdk": "^11.2.0",
     "dotenv": "^17.2.3",
+    "decimal.js": "^10.4.3",
     "ethers": "^6.15.0",
     "ws": "^8.18.0",
     "aes-js": "^4.0.0-beta.5"
