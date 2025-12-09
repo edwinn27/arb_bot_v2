@@ -1,52 +1,31 @@
-name: Regenerate package-lock
+name: fresh-lockfile
 
 on:
   workflow_dispatch:
 
 jobs:
-  regen-lock:
+  build-lock:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: true
 
-      - name: Use Node
-        uses: actions/setup-node@v4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
 
-      - name: Show current package.json and lock info
+      - name: Remove old lockfile
         run: |
-          echo "---- package.json ----"
-          cat package.json || true
-          echo "---- package-lock.json (head) ----"
-          head -n 20 package-lock.json || true
+          rm -f package-lock.json
+          rm -rf node_modules
 
-      - name: Clean node_modules if present
-        run: |
-          rm -rf node_modules || true
+      - name: Install fresh
+        run: npm install --no-audit --no-fund
 
-      - name: Install to regenerate package-lock.json
-        run: |
-          # Używamy npm install (nie npm ci) żeby zaktualizować lockfile zgodnie z package.json
-          npm install --no-audit --no-fund
-
-      - name: Show diff
-        run: |
-          git --no-pager status --porcelain
-          git --no-pager diff -- package-lock.json || true
-
-      - name: Commit and push updated lockfile if changed
+      - name: Commit new lockfile
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- package-lock.json; then
-            echo "package-lock.json unchanged, nothing to commit"
-          else
-            git add package-lock.json
-            git commit -m "chore: regenerate package-lock.json via workflow"
-            git push
-          fi
+          git add package-lock.json
+          git commit -m "fresh lockfile" || echo "no changes"
+          git push
