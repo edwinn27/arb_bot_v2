@@ -11,10 +11,10 @@ const LIFI_API_KEY = process.env.LIFI_API_KEY;
 const BASE_WALLET = process.env.BASE_WALLET || "0xA2b45FfE6c19B13EC2A78F22cB2A3E7F3F2CAb12";
 const SOLANA_WALLET = process.env.SOLANA_WALLET || "7x2d18P6Q8w9A6gNFvn2JH5m6N1toX5i2pKk1pKk1pHqk";
 
-const BASE_AMOUNT = new Decimal(process.env.BASE_AMOUNT || "3.0");
+const BASE_AMOUNT = new Decimal(process.env.BASE_AMOUNT || "2.0");
 const PROFIT_THRESHOLD = new Decimal(process.env.PROFIT_THRESHOLD || "0.004");
 const MAYAN_PROFIT_THRESHOLD = new Decimal(process.env.MAYAN_PROFIT_THRESHOLD || "0.015");
-const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "60000");
+const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "25000");
 
 const FROM_CHAIN = process.env.FROM_CHAIN || 8453; // Base
 const MIDDLE_CHAIN = process.env.MIDDLE_CHAIN || 1151111081099710; // Solana
@@ -264,3 +264,4 @@ async function mainLoop() {
 }
 
 mainLoop();
+
