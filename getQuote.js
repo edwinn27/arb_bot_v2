@@ -13,7 +13,7 @@ const SOLANA_WALLET = process.env.SOLANA_WALLET;
 const BASE_AMOUNT = new Decimal(process.env.BASE_AMOUNT || "2.0");
 const PROFIT_THRESHOLD = new Decimal(process.env.PROFIT_THRESHOLD || "0.008");
 const MAYAN_PROFIT_THRESHOLD = new Decimal(process.env.MAYAN_PROFIT_THRESHOLD || "0.015");
-const POLL_INTERVAL = 15_000;
+const POLL_INTERVAL = 25_000;
 
 const FROM_CHAIN = process.env.FROM_CHAIN || 8453; // Base
 const MIDDLE_CHAIN = process.env.MIDDLE_CHAIN || 1151111081099710; // Solana
@@ -56,9 +56,6 @@ const headers = {
 "origin": "https://jumper.exchange",
 "referer": "https://jumper.exchange/",
 "user-agent": "Mozilla/5.0",
-"x-lifi-integrator": "jumper.exchange",
-"x-lifi-sdk": "3.12.11",
-"x-lifi-widget": "3.32.2"
 };
 const payload = {
 fromAddress,
@@ -255,4 +252,5 @@ await new Promise(r => setTimeout(r, Math.max(0, POLL_INTERVAL - elapsed)));
 }
 
 mainLoop();
+
 
