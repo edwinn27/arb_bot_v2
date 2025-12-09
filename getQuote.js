@@ -71,6 +71,7 @@ options: { integrator: "jumper.exchange", order: "CHEAPEST", maxPriceImpact: 0.4
 const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
 const data = await res.json();
 if (!data.routes || data.routes.length === 0) throw new Error("No routes found");
+console.log(`[${nowTs()}] Jumper response.routes empty. Full response:`, data);
 return data.routes;
 }
 
@@ -252,5 +253,6 @@ await new Promise(r => setTimeout(r, Math.max(0, POLL_INTERVAL - elapsed)));
 }
 
 mainLoop();
+
 
 
