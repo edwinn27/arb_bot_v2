@@ -8,8 +8,8 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const LIFI_API_KEY = process.env.LIFI_API_KEY;
 
-const BASE_WALLET = process.env.BASE_WALLET || "0xA2b45FfE6c19B13EC2A78F22cB2A3E7F3F2CAb12";
-const SOLANA_WALLET = process.env.SOLANA_WALLET || "7x2d18P6Q8w9A6gNFvn2JH5m6N1toX5i2pKk1pKk1pHqk";
+const BASE_WALLET = process.env.BASE_WALLET;
+const SOLANA_WALLET = process.env.SOLANA_WALLET;
 
 const BASE_AMOUNT = new Decimal(process.env.BASE_AMOUNT || "2.0");
 const PROFIT_THRESHOLD = new Decimal(process.env.PROFIT_THRESHOLD || "0.004");
@@ -264,4 +264,5 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
