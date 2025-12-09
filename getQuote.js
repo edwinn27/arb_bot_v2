@@ -66,7 +66,7 @@ async function getLifiRoutes(fromAddress, toAddress, fromChain, toChain, fromTok
     toChainId: toChain,
     toTokenAddress: toToken,
     options: {
-      order: "BEST_PRICE",
+      order: "RECOMMENDED",
       maxPriceImpact: 1.0,
       allowSwitchChain: true
     }
@@ -275,4 +275,5 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
