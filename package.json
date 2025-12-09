@@ -1,3 +1,14 @@
-"scripts": {
-  "start": "node getQuote.js"
+{
+  "name": "arb-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node getQuote.js"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "decimal.js": "^10.4.3",
+    "@mayanfinance/swap-sdk": "^1.0.0",
+    "dotenv": "^16.4.0"
+  }
 }
