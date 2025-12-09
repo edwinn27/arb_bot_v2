@@ -55,25 +55,48 @@ async function getJumperRoutes(fromAddress, toAddress, fromChain, toChain, fromT
     "content-type": "application/json",
     "origin": "https://jumper.exchange",
     "referer": "https://jumper.exchange/",
-    "user-agent": "Mozilla/5.0",
+    "user-agent": "Node.js",
     "x-lifi-integrator": "jumper.exchange",
     "x-lifi-sdk": "3.12.11",
     "x-lifi-widget": "3.32.2"
   };
   const payload = {
     fromAddress,
-    fromAmount: fromAmount.toString(),
-    fromChainId: fromChain,
+    fromAmount: String(fromAmount),
+    fromChainId: Number(fromChain),
     fromTokenAddress: fromToken,
     toAddress,
-    toChainId: toChain,
+    toChainId: Number(toChain),
     toTokenAddress: toToken,
     options: { integrator: "jumper.exchange", order: "CHEAPEST", maxPriceImpact: 0.4, allowSwitchChain: true }
   };
 
-  const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
-  const data = await res.json();
-  if (!data.routes || data.routes.length === 0) throw new Error("No routes found");
+  console.log(`[${nowTs()}] GET JUMPER ROUTES payload:`, JSON.stringify(payload));
+  const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) }).catch(e => {
+    console.error(`[${nowTs()}] Fetch error:`, e);
+    throw e;
+  });
+
+  const status = res.status;
+  const text = await res.text().catch(e => {
+    console.error(`[${nowTs()}] Error reading response text:`, e);
+    return "";
+  });
+
+  console.log(`[${nowTs()}] Jumper status: ${status}`);
+  // próba sparsowania JSON, jeśli się nie uda — pokaż surowy tekst
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    console.error(`[${nowTs()}] Jumper returned non-JSON body:`, text);
+    throw new Error(`Jumper non-JSON response, status ${status}`);
+  }
+
+  if (!data.routes || data.routes.length === 0) {
+    console.error(`[${nowTs()}] Jumper response.routes empty. Full response:`, JSON.stringify(data));
+    throw new Error("No routes found");
+  }
   return data.routes;
 }
 
@@ -255,4 +278,5 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
