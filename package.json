@@ -1,11 +1,3 @@
-{
-  "dependencies": {
-    "@mayanfinance/swap-sdk": "^11.2.0",
-    "decimal.js": "^10.6.0",
-    "dotenv": "^17.2.3",
-    "node-fetch": "^3.3.2"
-  }
-  "scripts": {
+"scripts": {
   "start": "node getQuote.js"
-}
 }
