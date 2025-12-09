@@ -14,7 +14,7 @@ const SOLANA_WALLET = process.env.SOLANA_WALLET;
 const BASE_AMOUNT = new Decimal(process.env.BASE_AMOUNT || "2.0");
 const PROFIT_THRESHOLD = new Decimal(process.env.PROFIT_THRESHOLD || "0.004");
 const MAYAN_PROFIT_THRESHOLD = new Decimal(process.env.MAYAN_PROFIT_THRESHOLD || "0.015");
-const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "10000");
+const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL || "30000");
 
 const FROM_CHAIN = process.env.FROM_CHAIN || 8453; // Base
 const MIDDLE_CHAIN = process.env.MIDDLE_CHAIN || 1151111081099710; // Solana
@@ -267,6 +267,7 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
 
 
