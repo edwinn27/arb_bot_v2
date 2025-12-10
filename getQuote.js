@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // Użycie klucza API z dotenv (zalecane)
-const LIFI_API_KEY = process.env.LIFI_API_KEY ||;
+const LIFI_API_KEY = process.env.LIFI_API_KEY;
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -275,3 +275,4 @@ async function mainLoop() {
 }
 
 mainLoop();
+
