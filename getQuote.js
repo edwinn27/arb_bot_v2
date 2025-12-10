@@ -52,17 +52,15 @@ async function getJumperQuote(fromChain, toChain, fromToken, toToken, fromAmount
   const url = "https://api.jumper.exchange/p/lifi/quote";
 
   const payload = {
-    fromChain,
-    toChain,
-    fromToken,
-    toToken,
-    fromAmount: fromAmount.toString(),
-    fromAddress,
-    toAddress,
-    slippage: 0.003,
-    integrator: "jumper.exchange",
-    allowSwitchChain: true
-  };
+  "fromChain": 8453,
+  "toChain": 1151111081099710,
+  "fromToken": "0x0000000000000000000000000000000000000000",
+  "toToken": "11111111111111111111111111111111",
+  "fromAmount": "2000000000000000000",
+  "slippage": 0.003,
+  "integrator": "jumper.exchange",
+  "allowSwitchChain": true
+}
 
   const headers = {
     "accept": "*/*",
@@ -249,3 +247,4 @@ async function mainLoop() {
 }
 
 mainLoop();
+
