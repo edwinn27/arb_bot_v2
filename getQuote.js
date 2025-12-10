@@ -125,7 +125,7 @@ async function getLifiRoutes({ fromAddress, toAddress, fromChain, toChain, fromT
     "referer": "https://jumper.exchange/",
     "user-agent": "Mozilla/5.0",
     "x-lifi-integrator": "jumper.exchange",
-    "X-API-Key": LIFI_API_KEY
+    "x-lifi-api-key": LIFI_API_KEY
   };
 
   const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
@@ -275,4 +275,5 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
