@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // Użycie klucza API z dotenv (zalecane)
-const LIFI_API_KEY = process.env.LIFI_API_KEY;
+const LIFI_API_KEY = process.env.LIFI_API_KEY ||;
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -108,10 +108,13 @@ async function getLifiRoutes({ fromAddress, toAddress, fromChain, toChain, fromT
     fromTokenAddress: fromToken,
     toTokenAddress: toToken,
     fromAmount: fromAmount,
-    integrator: "jumper.exchange",
+    // Nowe, poprawione opcje na podstawie payloadu z GUI
     options: {
+      integrator: "jumper.exchange",
+      order: "CHEAPEST", // Zgodnie z GUI
+      maxPriceImpact: 0.4, // DODANO maxPriceImpact (40%)
       allowSwitchChain: true,
-      order: "CHEAPEST" // Zmieniono z CHEAPEST na BEST_RETURN dla maksymalizacji zysku
+      executionType: "all" // Dodany z payloadu, chociaż może być domyślny
     }
   };
 
@@ -122,7 +125,7 @@ async function getLifiRoutes({ fromAddress, toAddress, fromChain, toChain, fromT
     "referer": "https://jumper.exchange/",
     "user-agent": "Mozilla/5.0",
     "x-lifi-integrator": "jumper.exchange",
-    "X-API-Key": LIFI_API_KEY // DODANY KLUCZ API
+    "X-API-Key": LIFI_API_KEY
   };
 
   const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
@@ -133,7 +136,6 @@ async function getLifiRoutes({ fromAddress, toAddress, fromChain, toChain, fromT
     return [];
   }
   
-  // Zwraca listę sparowanych obiektów z kwotą i mostem
   return data.routes.map(parseRoute);
 }
 
@@ -146,7 +148,7 @@ async function mayanSolToBase(amountSmallStr) {
       fromToken: TO_TOKEN_ADDRESS,
       toToken: BACK_TOKEN_ADDRESS,
       amountIn64: amountSmallStr,
-      slippageBps: 300
+      slippageBps: 300 
     });
 
     if (!quotes || quotes.length === 0) return null;
@@ -197,7 +199,7 @@ async function checkOnce() {
   // --- Krok 2: Solana -> Base (Zbieranie i Porównanie kwotowań) ---
   const quotes = [];
   
-  // 1. Kwotowanie Mayan (Włączone ponownie w celu pełnej optymalizacji zysku)
+  // 1. Kwotowanie Mayan 
   try {
     const mayanQuote = await mayanSolToBase(amount64);
     if (mayanQuote) quotes.push(mayanQuote);
@@ -207,7 +209,6 @@ async function checkOnce() {
 
   // 2. Kwotowanie LI.FI (zawiera GasZip i inne mosty)
   try {
-    // getLifiRoutes zwraca listę { amount: Decimal, bridge: string }
     const lifiQuotes = await getLifiRoutes({
       fromAddress: SOLANA_WALLET,
       toAddress: BASE_WALLET,
@@ -218,7 +219,7 @@ async function checkOnce() {
       fromAmount: amount64
     });
     
-    // Filtrowanie: Używamy tylko kwotowań spoza Mayana (żeby unikać duplikacji)
+    // Filtrowanie: Używamy tylko kwotowań spoza Mayana 
     const filteredLifiQuotes = lifiQuotes.filter(q => !q.bridge.toLowerCase().includes("mayan"));
     quotes.push(...filteredLifiQuotes);
 
@@ -226,7 +227,7 @@ async function checkOnce() {
     console.error(`[${nowTs()}] LI.FI quote error:`, e.message);
   }
 
-  // 3. Wybór najlepszego mostu (logika ulepszona)
+  // 3. Wybór najlepszego mostu 
   if (quotes.length === 0) {
     console.log(`[${nowTs()}] Brak dostępnych mostów powrotnych (Mayan/LI.FI)`);
     return;
@@ -274,5 +275,3 @@ async function mainLoop() {
 }
 
 mainLoop();
-
-
