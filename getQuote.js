@@ -15,21 +15,21 @@ const PROFIT_THRESHOLD = new Decimal(process.env.PROFIT_THRESHOLD || "0.008");
 const MAYAN_PROFIT_THRESHOLD = new Decimal(process.env.MAYAN_PROFIT_THRESHOLD || "0.015");
 const POLL_INTERVAL = 15_000;
 
-const FROM_CHAIN = 8453;                      // Base
-const MIDDLE_CHAIN = 1151111081099710;        // Solana
-const TO_CHAIN = 8453;                        // Base
+const FROM_CHAIN = process.env.FROM_CHAIN || 8453; // Base
+const MIDDLE_CHAIN = process.env.MIDDLE_CHAIN || 1151111081099710; // Solana
+const TO_CHAIN = FROM_CHAIN; // Base
 
-const FROM_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000";
-const TO_TOKEN_ADDRESS   = "11111111111111111111111111111111";
-const BACK_TOKEN_ADDRESS = FROM_TOKEN_ADDRESS;
+const FROM_TOKEN_ADDRESS = process.env.FROM_TOKEN_ADDRESS || "0x0000000000000000000000000000000000000000";
+const TO_TOKEN_ADDRESS = process.env.TO_TOKEN_ADDRESS || "11111111111111111111111111111111";
+const BACK_TOKEN_ADDRESS = process.env.BACK_TOKEN_ADDRESS || FROM_TOKEN_ADDRESS;
 
-const FROM_TOKEN_DECIMALS = 18;
-const TO_TOKEN_DECIMALS = 9;
-const BACK_TOKEN_DECIMALS = 18;
+const FROM_TOKEN_DECIMALS = parseInt(process.env.FROM_TOKEN_DECIMALS || "18");
+const TO_TOKEN_DECIMALS = parseInt(process.env.TO_TOKEN_DECIMALS || "9");
+const BACK_TOKEN_DECIMALS = process.env.BACK_TOKEN_DECIMALS ? parseInt(process.env.BACK_TOKEN_DECIMALS) : FROM_TOKEN_DECIMALS;
 
-const FROM_TOKEN_SYMBOL = "ETH";
-const TO_TOKEN_SYMBOL = "SOL";
-const BACK_TOKEN_SYMBOL = FROM_TOKEN_SYMBOL;
+const FROM_TOKEN_SYMBOL = process.env.FROM_TOKEN_SYMBOL || "ETH";
+const TO_TOKEN_SYMBOL = process.env.TO_TOKEN_SYMBOL || "SOL";
+const BACK_TOKEN_SYMBOL = process.env.BACK_TOKEN_SYMBOL || FROM_TOKEN_SYMBOL;
 
 function nowTs() {
   return new Date().toISOString().split("T")[1].split(".")[0];
@@ -43,199 +43,204 @@ async function sendTelegramMessage(text) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: "Markdown" })
     });
-  } catch (_) {}
+  } catch (e) {
+    console.error(`[${nowTs()}] Telegram send error:`, e);
+  }
 }
 
-async function getLifiRoutes({ fromAddress, toAddress, fromChain, toChain, fromToken, toToken, fromAmount }) {
-  const url = "https://li.quest/v1/advanced/routes";
-
-  const payload = {
-    fromAddress,
-    toAddress,
-    fromChainId: fromChain,
-    toChainId: toChain,
-    fromTokenAddress: fromToken,
-    toTokenAddress: toToken,
-    fromAmount: fromAmount,
-    integrator: "jumper.exchange",
-
-    // jedyne poprawne opcje
-    options: {
-      allowSwitchChain: true,
-      order: "CHEAPEST"
-    }
-  };
-
+async function getJumperRoutes(fromAddress, toAddress, fromChain, toChain, fromToken, toToken, fromAmount) {
+  const url = "https://api.jumper.exchange/p/lifi/advanced/routes";
   const headers = {
     "accept": "*/*",
     "content-type": "application/json",
     "origin": "https://jumper.exchange",
     "referer": "https://jumper.exchange/",
     "user-agent": "Mozilla/5.0",
-    "x-lifi-integrator": "jumper.exchange"
+    "x-lifi-integrator": "jumper.exchange",
+    "x-lifi-sdk": "3.12.11",
+    "x-lifi-widget": "3.32.2"
+  };
+  const payload = {
+    fromAddress,
+    fromAmount: fromAmount.toString(),
+    fromChainId: fromChain,
+    fromTokenAddress: fromToken,
+    toAddress,
+    toChainId: toChain,
+    toTokenAddress: toToken,
+    options: { integrator: "jumper.exchange", order: "CHEAPEST", maxPriceImpact: 0.4, allowSwitchChain: true }
   };
 
   const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
   const data = await res.json();
-
-  if (!data.routes || data.routes.length === 0) throw new Error("No routes");
+  if (!data.routes || data.routes.length === 0) throw new Error("No routes found");
   return data.routes;
 }
 
-function parseRoute(route) {
+function parseJumperRoute(route) {
   const step = route.steps[0];
   const toAmountRaw = route.toAmount || route.toAmountMin;
+  if (!toAmountRaw) throw new Error("Missing toAmount in route");
   return {
     toAmount: new Decimal(toAmountRaw),
-    decimals: route.toToken.decimals,
+    decimals: parseInt(route.toToken.decimals),
     bridge: step.tool
   };
 }
 
-function toSmallest(amount, decimals) {
+function toSmallestUnit(amount, decimals) {
   return amount.mul(Decimal.pow(10, decimals)).toFixed(0);
 }
 
-function fromSmallest(amount, decimals) {
+function fromSmallestUnit(amount, decimals) {
   return new Decimal(amount).div(Decimal.pow(10, decimals));
 }
 
-async function getMayanQuoteBack(amountIn) {
+async function getMayanQuote(fromToken, toToken, fromChain, toChain, amountIn64) {
   try {
-    const q = await fetchQuote({
-      fromChain: "solana",
-      toChain: "base",
-      fromToken: TO_TOKEN_ADDRESS,
-      toToken: BACK_TOKEN_ADDRESS,
-      amountIn64: amountIn,
-      slippageBps: 300
-    });
-
-    return q.map(x => ({
-      amount: new Decimal(x.expectedAmountOut),
+    const quotes = await fetchQuote({ fromChain, toChain, fromToken, toToken, amountIn64, slippageBps: 300 });
+    return quotes.map(q => ({
+      amount: new Decimal(q.expectedAmountOut),
       bridge: "MAYAN"
     }));
-  } catch (_) {
+  } catch (e) {
+    console.error(`[${nowTs()}] Błąd przy pobieraniu quote Mayan:`, e);
     return [];
   }
 }
 
-function logRoute(r) {
-  const color = r.profit.gte(PROFIT_THRESHOLD) ? "\x1b[38;5;112m" : "\x1b[38;5;240m";
-  const mark = r.profit.gt(0) ? "▲" : "▼";
+function logBestRoute(bestRoute) {
+  const colorGreenBright = "\x1b[38;5;46m";
+  const colorGreenDim = "\x1b[38;5;112m";
+  const colorGray = "\x1b[38;5;240m";
+  const colorReset = "\x1b[0m";
+
+  const colorMain = bestRoute.profit.gte(PROFIT_THRESHOLD) ? colorGreenDim : colorGray;
+  const profitMark = bestRoute.profit.gt(0) ? "▲" : "▼";
+
+  const fromDecimals = FROM_TOKEN_SYMBOL === "ETH" ? 6 : 2;
+  const toDecimals = TO_TOKEN_SYMBOL === "SOL" ? 6 : 2;
+  const backDecimals = BACK_TOKEN_SYMBOL === "ETH" ? 6 : 2;
+  const profitDecimals = BACK_TOKEN_SYMBOL === "ETH" ? 6 : 2;
 
   console.log(
-    `${color}[${nowTs()}] ${mark} ${r.fromAmount.toFixed(6)} ${FROM_TOKEN_SYMBOL} `
-    + `-> ${r.toAmount.toFixed(6)} ${TO_TOKEN_SYMBOL} (${r.bridgeFrom}) `
-    + `-> ${r.backAmount.toFixed(6)} ${BACK_TOKEN_SYMBOL} (${r.bridgeTo}) `
-    + `| PROFIT: ${r.profit.toFixed(6)} ${BACK_TOKEN_SYMBOL} (${r.pct.toFixed(3)}%)\x1b[0m`
+    `${colorMain}[${nowTs()}] ${profitMark} ${bestRoute.fromAmount.toFixed(fromDecimals)} ${FROM_TOKEN_SYMBOL} -> ${bestRoute.toAmount.toFixed(toDecimals)} ${TO_TOKEN_SYMBOL} (${bestRoute.bridgeFrom}) -> ${bestRoute.backAmount.toFixed(backDecimals)} ${BACK_TOKEN_SYMBOL} (${bestRoute.bridgeTo}) | PROFIT: ${bestRoute.profit.toFixed(profitDecimals)} ${BACK_TOKEN_SYMBOL} (${bestRoute.pct.toFixed(3)}%)${colorReset}`
   );
 }
 
 async function checkOnce() {
-  const fromAmountSmall = toSmallest(BASE_AMOUNT, FROM_TOKEN_DECIMALS);
+  const fromAmountSmallest = BASE_AMOUNT.mul(Decimal.pow(10, FROM_TOKEN_DECIMALS));
 
-  // -------------------- BASE → SOL --------------------
-  let toTokenAmount;
-  let bridgeFrom;
-
+  // --- Base -> Sol ---
+  let toTokenAmount = null, bridgeFrom = "";
   try {
-    const routes = await getLifiRoutes({
-      fromAddress: BASE_WALLET,
-      toAddress: SOLANA_WALLET,
-      fromChain: FROM_CHAIN,
-      toChain: MIDDLE_CHAIN,
-      fromToken: FROM_TOKEN_ADDRESS,
-      toToken: TO_TOKEN_ADDRESS,
-      fromAmount: fromAmountSmall
-    });
+    const routes = await getJumperRoutes(BASE_WALLET, SOLANA_WALLET, FROM_CHAIN, MIDDLE_CHAIN, FROM_TOKEN_ADDRESS, TO_TOKEN_ADDRESS, fromAmountSmallest);
 
-    const filtered = routes
-      .map(parseRoute)
-      .filter(x => !x.bridge.toLowerCase().includes("mayan"));
+    const filteredRoutes = routes
+      .map(parseJumperRoute)
+      .filter(r => r && !r.bridge.toLowerCase().includes("mayan"));
 
-    const best = filtered.sort((a, b) => b.toAmount.minus(a.toAmount).toNumber())[0];
+    if (!filteredRoutes.length) {
+      console.log(`[${nowTs()}] Brak tras z Base na Sol bez Mayan`);
+      return;
+    }
 
-    toTokenAmount = fromSmallest(best.toAmount, best.decimals);
+    const best = filteredRoutes.sort((a, b) => b.toAmount.minus(a.toAmount).toNumber())[0];
+    toTokenAmount = fromSmallestUnit(best.toAmount, best.decimals);
     bridgeFrom = best.bridge;
+
   } catch (e) {
-    console.log(`[${nowTs()}] Base→Sol failed:`, e.message);
+    console.error(`[${nowTs()}] Error BASE->SOL via Jumper:`, e);
     return;
   }
 
-  // -------------------- SOL → BASE --------------------
-  let backAmount;
-  let bridgeTo;
+  // --- Sol -> Base ---
+  let backTokenAmount = null, bridgeTo = "";
+  try {
+    const amountIn64 = toTokenAmount.mul(Decimal.pow(10, TO_TOKEN_DECIMALS)).toFixed(0);
 
-  const amount64 = toSmallest(toTokenAmount, TO_TOKEN_DECIMALS);
+    // MAYAN
+    const mayanQuotes = await getMayanQuote(
+      TO_TOKEN_ADDRESS,
+      BACK_TOKEN_ADDRESS,
+      "solana",
+      "base",
+      amountIn64
+    );
 
-  // MAYAN
-  const mayan = await getMayanQuoteBack(amount64);
-  let mayanBest = null;
+    let mayanBest = null;
+    if (mayanQuotes.length > 0) {
+      let amt = mayanQuotes[0].amount;
+      if (
+        BACK_TOKEN_ADDRESS === "0x0000000000000000000000000000000000000000" &&
+        FROM_CHAIN === 56
+      ){
+        amt = fromSmallestUnit(amt, FROM_TOKEN_DECIMALS);
+      }
+      mayanBest = {
+        amount: amt,
+        bridge: "MAYAN"
+      };
+    }
 
-  if (mayan.length > 0) {
-    mayanBest = {
-      amount: fromSmallest(mayan[0].amount, BACK_TOKEN_DECIMALS),
-      bridge: "MAYAN"
+    // JUMPER
+    const routesBack = await getJumperRoutes(
+      SOLANA_WALLET,
+      BASE_WALLET,
+      MIDDLE_CHAIN,
+      TO_CHAIN,
+      TO_TOKEN_ADDRESS,
+      BACK_TOKEN_ADDRESS,
+      toSmallestUnit(toTokenAmount, TO_TOKEN_DECIMALS)
+    );
+
+    const bestBack = routesBack
+      .map(parseJumperRoute)
+      .filter(route => route.bridge.toLowerCase() !== "mayanmctp")
+      .sort((a, b) => b.toAmount.minus(a.toAmount).toNumber())[0];
+
+    const jumperBest = {
+      amount: fromSmallestUnit(bestBack.toAmount, bestBack.decimals),
+      bridge: bestBack.bridge
     };
+
+    // WYBÓR LEPSZEGO
+    if (mayanBest && mayanBest.amount.gt(jumperBest.amount)) {
+      backTokenAmount = mayanBest.amount;
+      bridgeTo = mayanBest.bridge;
+    } else {
+      backTokenAmount = jumperBest.amount;
+      bridgeTo = jumperBest.bridge;
+    }
+
+  } catch (e) {
+    console.error(`[${nowTs()}] Error SOL->BASE:`, e);
+    return;
   }
 
-  // LI.FI
-  const routesBack = await getLifiRoutes({
-    fromAddress: SOLANA_WALLET,
-    toAddress: BASE_WALLET,
-    fromChain: MIDDLE_CHAIN,
-    toChain: TO_CHAIN,
-    fromToken: TO_TOKEN_ADDRESS,
-    toToken: BACK_TOKEN_ADDRESS,
-    fromAmount: amount64
-  });
-
-  const jumperBestRaw = routesBack
-    .map(parseRoute)
-    .filter(x => !x.bridge.toLowerCase().includes("mayan"))
-    .sort((a, b) => b.toAmount.minus(a.toAmount).toNumber())[0];
-
-  const jumperBest = {
-    amount: fromSmallest(jumperBestRaw.toAmount, jumperBestRaw.decimals),
-    bridge: jumperBestRaw.bridge
-  };
-
-  if (mayanBest && mayanBest.amount.gt(jumperBest.amount)) {
-    backAmount = mayanBest.amount;
-    bridgeTo = "MAYAN";
-  } else {
-    backAmount = jumperBest.amount;
-    bridgeTo = jumperBest.bridge;
-  }
-
-  // -------------------- RESULT --------------------
-  const profit = backAmount.sub(BASE_AMOUNT);
+  const profit = backTokenAmount.sub(BASE_AMOUNT);
   const pct = profit.div(BASE_AMOUNT).mul(100);
 
-  logRoute({
+  const bestRoute = {
     fromAmount: BASE_AMOUNT,
     toAmount: toTokenAmount,
-    backAmount,
+    backAmount: backTokenAmount,
     bridgeFrom,
     bridgeTo,
     profit,
     pct
-  });
+  };
 
-  const threshold = bridgeTo === "MAYAN" ? MAYAN_PROFIT_THRESHOLD : PROFIT_THRESHOLD;
+  logBestRoute(bestRoute);
 
+  const threshold = bridgeFrom.toLowerCase() === "mayan" ? MAYAN_PROFIT_THRESHOLD : PROFIT_THRESHOLD;
   if (profit.gte(threshold)) {
-    const msg =
-      `*ARBITRAGE ALERT*\n` +
-      `Profit: ${profit.toFixed(6)} ${BACK_TOKEN_SYMBOL}\n` +
-      `----------------------------\n` +
-      `Bridge 1: ${bridgeFrom} (Base→Sol)\n` +
-      `Bridge 2: ${bridgeTo} (Sol→Base)\n` +
-      `Received: ${toTokenAmount.toFixed(6)} ${TO_TOKEN_SYMBOL}\n` +
-      `Returned: ${backAmount.toFixed(6)} ${BACK_TOKEN_SYMBOL}\n` +
-      `----------------------------`;
-
+    const profitDecimals = BACK_TOKEN_SYMBOL === "ETH" ? 6 : 2;
+    const toDecimals = TO_TOKEN_SYMBOL === "SOL" ? 6 : 2;
+    const backDecimals = BACK_TOKEN_SYMBOL === "ETH" ? 6 : 2;
+    const superThreshold = BACK_TOKEN_SYMBOL === "ETH" ? 0.01 : 10.0;
+    const alertHeader = profit.gte(superThreshold) ? "*SUPER ARBITRAGE ALERT*" : "*ARBITRAGE ALERT*";
+    const msg = `${alertHeader}\n\`Profit: ${profit.toFixed(profitDecimals)} ${BACK_TOKEN_SYMBOL}\`\n----------------------------\n*Bridge 1:* ${bridgeFrom} (Base→Solana)\n*Bridge 2:* ${bridgeTo} (Solana→Base)\n*Received:* \`${toTokenAmount.toFixed(toDecimals)} ${TO_TOKEN_SYMBOL}\`\n*Returned:* \`${backTokenAmount.toFixed(backDecimals)} ${BACK_TOKEN_SYMBOL}\`\n----------------------------`;
     await sendTelegramMessage(msg);
   }
 }
