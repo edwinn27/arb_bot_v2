@@ -111,7 +111,7 @@ async function getLifiRoutes({ fromAddress, toAddress, fromChain, toChain, fromT
     integrator: "jumper.exchange",
     options: {
       allowSwitchChain: true,
-      order: "BEST_RETURN" // Zmieniono z CHEAPEST na BEST_RETURN dla maksymalizacji zysku
+      order: "CHEAPEST" // Zmieniono z CHEAPEST na BEST_RETURN dla maksymalizacji zysku
     }
   };
 
@@ -274,4 +274,5 @@ async function mainLoop() {
 }
 
 mainLoop();
+
 
